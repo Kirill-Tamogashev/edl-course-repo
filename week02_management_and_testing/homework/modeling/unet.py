@@ -51,7 +51,6 @@ class UpBlock(nn.Module):
     def forward(self, x: torch.Tensor, skip: torch.Tensor) -> torch.Tensor:
         x = torch.cat((x, skip), 1)
         x = self.layers(x)
-
         return x
 
 
@@ -108,9 +107,9 @@ class UnetModel(nn.Module):
         thro = self.to_vec(down3)
         temb = self.timestep_embedding(t)
 
-        thro = self.up0(thro + temb)
+        thro = self.up0(thro + temb[:, :, None, None])
 
-        up1 = self.up1(thro, down3) + temb
+        up1 = self.up1(thro, down3) + temb[:, :, None, None]
         up2 = self.up2(up1, down2)
         up3 = self.up3(up2, down1)
 

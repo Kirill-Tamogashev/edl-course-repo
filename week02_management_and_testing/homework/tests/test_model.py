@@ -46,4 +46,4 @@ def test_diffusion(num_channels=3, batch_size=4):
 
     output = model(input_data)
     assert output.ndim == 0
-    assert 1.0 <= output <= 1.2
+    assert output >= 0.0

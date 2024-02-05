@@ -1,0 +1,31 @@
+seed: 8764
+project: "edl_homework"
+name: "ddpm"
+device: "cpu"
+mode: "offline"
+
+ddpm:
+    betas: (0.0001, 0.002)
+    num_timesteps: 1000
+    unet:
+        in_channels: 3
+        out_channels: 3
+        hidden_size: 256
+
+training:
+    optimizer: "adamw"
+    optimizer_params:
+        lr: 0.0001
+        betas:
+
+    num_epochs: 100
+    num_samples_to_log: 16
+
+data:
+    path: "./cifar_data"
+    batch_size: 16
+    shuffle: true
+
+checkpointing:
+    path: "./checkpoint/"
+    freq: 25
