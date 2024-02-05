@@ -5,7 +5,9 @@ device: "cpu"
 mode: "offline"
 
 ddpm:
-    betas: (0.0001, 0.002)
+    betas:
+        - 0.0001
+        - 0.02
     num_timesteps: 1000
     unet:
         in_channels: 3
@@ -16,7 +18,6 @@ training:
     optimizer: "adamw"
     optimizer_params:
         lr: 0.0001
-        betas:
 
     num_epochs: 100
     num_samples_to_log: 16

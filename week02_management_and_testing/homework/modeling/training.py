@@ -82,12 +82,12 @@ def train_ddpm(cfg: DictConfig) -> None:
     with wandb.init(config=OmegaConf.to_container(cfg)) as logger:
         # log data artefact
         data_artifact = wandb.Artifact(name="Cifar10", type="dataset")
-        data_artifact.add_dir(local_path="./cifar_data/cifar-10-python.tar.gz")
+        data_artifact.add_dir(local_path=cfg.data.path)
         logger.log_artifact(data_artifact)
 
         # log config artefact
-        cfg_artifact = wandb.Artifact(name="Experiment Config", type="config")
-        cfg_artifact.add_dir(local_path="./config/ddpm_config.yaml")
+        cfg_artifact = wandb.Artifact(name="ExperimentConfig", type="config")
+        cfg_artifact.add_dir(local_path="./config")
         logger.log_artifact(cfg_artifact)
 
         for epoch in range(cfg.train.num_epochs):
