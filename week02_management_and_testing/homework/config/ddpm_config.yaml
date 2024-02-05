@@ -14,7 +14,7 @@ ddpm:
         out_channels: 3
         hidden_size: 256
 
-training:
+train:
     optimizer: "adamw"
     optimizer_params:
         lr: 0.0001
