@@ -80,7 +80,12 @@ def train_ddpm(cfg: DictConfig) -> None:
         shuffle=cfg.data.shuffle,
     )
 
-    with wandb.init(config=OmegaConf.to_container(cfg)) as logger:
+    with wandb.init(
+            project=cfg.project,
+            name=cfg.name,
+            mode=cfg.mode,
+            config=OmegaConf.to_container(cfg),
+    ) as logger:
         # log data artefact
         data_artifact = wandb.Artifact(name="Cifar10", type="dataset")
         data_artifact.add_dir(local_path=cfg.data.path)
@@ -103,7 +108,7 @@ def train_ddpm(cfg: DictConfig) -> None:
                                                       caption=f"Generated images, epoch: {epoch}")
                 })
 
-            if epoch % cfg.checkpoint.freq == 0:
+            if epoch % cfg.checkpointing.freq == 0:
                 checkpoint = {
                     "model": model.state_dict(),
                     "optimizer": optimizer.state_dict(),
