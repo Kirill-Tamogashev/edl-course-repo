@@ -109,4 +109,5 @@ def train_ddpm(cfg: DictConfig) -> None:
                     "optimizer": optimizer.state_dict(),
                 }
 
-                torch.save(checkpoint, Path(cfg.checkpoint.path) / "ddpm.pth")
+                torch.save(checkpoint, Path(cfg.checkpointing.path) / f"ddpm-epoch:{epoch}.pth")
+        torch.save(checkpoint, Path(cfg.checkpointing.path) / f"ddpm-epoch:final.pth")

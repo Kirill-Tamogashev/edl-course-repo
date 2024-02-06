@@ -28,5 +28,5 @@ data:
     shuffle: true
 
 checkpointing:
-    path: "./checkpoint/"
+    path: "./checkpoints/"
     freq: 25

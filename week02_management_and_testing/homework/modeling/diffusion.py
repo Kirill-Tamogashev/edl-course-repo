@@ -37,7 +37,7 @@ class DiffusionModel(nn.Module):
         noise = torch.randn(num_samples, *size, device=device)
 
         x_i = noise
-        for i in tqdm(range(self.num_timesteps, 0, -1)):
+        for i in tqdm(range(self.num_timesteps, 0, -1), leave=False):
             z = torch.randn(num_samples, *size, device=device) if i > 1 else 0
             time = torch.tensor(i / self.num_timesteps, device=device).repeat(num_samples, 1)
 
