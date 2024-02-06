@@ -69,6 +69,7 @@ def train_ddpm(cfg: DictConfig) -> None:
         betas=cfg.ddpm.betas,
         num_timesteps=cfg.ddpm.num_timesteps,
     )
+    model.to(cfg.device)
     optimizer = set_optimizer(cfg, model)
 
     img_transform = T.Compose([T.ToTensor(), T.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])

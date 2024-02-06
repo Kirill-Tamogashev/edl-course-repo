@@ -34,16 +34,17 @@ class DiffusionModel(nn.Module):
         return self.criterion(eps, self.eps_model(x_t, timestep / self.num_timesteps))
 
     def sample(self, num_samples: int, size, device) -> Tuple[torch.Tensor, torch.Tensor]:
-        x_T = torch.randn(num_samples, *size)
+        noise = torch.randn(num_samples, *size, device=device)
 
-        x_i = x_T
+        x_i = noise
         for i in tqdm(range(self.num_timesteps, 0, -1)):
             z = torch.randn(num_samples, *size, device=device) if i > 1 else 0
-            time = torch.tensor(i / self.num_timesteps).repeat(num_samples, 1)
+            time = torch.tensor(i / self.num_timesteps, device=device).repeat(num_samples, 1)
+
             eps = self.eps_model(x_i, time)
             x_i = self.inv_sqrt_alphas[i] * (x_i - eps * self.one_minus_alpha_over_prod[i]) + self.sqrt_betas[i] * z
 
-        return x_T, x_i
+        return noise, x_i
 
 
 def get_schedules(beta1: float, beta2: float, num_timesteps: int, eps: float = 1e-12) -> Dict[str, torch.Tensor]:

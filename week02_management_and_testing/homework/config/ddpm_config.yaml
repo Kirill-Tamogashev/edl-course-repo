@@ -1,7 +1,7 @@
 seed: 8764
 project: "edl_homework"
 name: "ddpm"
-device: "cpu"
+device: "cuda"
 mode: "offline"
 
 ddpm:
