@@ -61,41 +61,42 @@ def average_gradients(model):
         param.grad.data /= size
 
 
+cifar_transform = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761)),
+]),
+
+
 def run_training(rank, size):
     torch.manual_seed(0)
 
-    dataset = CIFAR100(
-        "./cifar",
-        transform=transforms.Compose(
-            [
-                transforms.ToTensor(),
-                transforms.Normalize((0.5071, 0.4867, 0.4408), (0.2675, 0.2565, 0.2761)),
-            ]
-        ),
-        download=True,
-    )
-    # where's the validation dataset?
-    loader = DataLoader(dataset, sampler=DistributedSampler(dataset, size, rank), batch_size=64)
+    train_dataset = CIFAR100("./cifar", transform=cifar_transform, download=True, train=True)
+    val_dataset = CIFAR100("./cifar",   transform=cifar_transform, download=True, train=False)
+
+    train_loader = DataLoader(train_dataset, sampler=DistributedSampler(train_dataset, size, rank), batch_size=64)
+    val_loader = DataLoader(train_dataset, sampler=DistributedSampler(val_dataset, size, rank), batch_size=64)
 
     model = Net()
     device = torch.device("cpu")  # replace with "cuda" afterwards
     model.to(device)
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.5)
-
-    num_batches = len(loader)
+    n_accum_steps = 1
+    num_batches = len(train_loader)
 
     for _ in range(10):
         epoch_loss = torch.zeros((1,), device=device)
 
-        for data, target in loader:
+        for data, target in train_loader:
             data = data.to(device)
             target = target.to(device)
 
             optimizer.zero_grad()
-            output = model(data)
-            loss = torch.nn.functional.cross_entropy(output, target)
-            epoch_loss += loss.detach()
-            loss.backward()
+            for _ in range(n_accum_steps):
+                output = model(data)
+                loss = torch.nn.functional.cross_entropy(output, target)
+                epoch_loss += loss.detach()
+                loss.backward()
+
             average_gradients(model)
             optimizer.step()
 
