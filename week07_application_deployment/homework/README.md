@@ -9,7 +9,7 @@ You can retrieve them from the [FasterRCNN_ResNet50_FPN_V2](https://pytorch.org/
 ```python
 from torchvision.models.detection import FasterRCNN_ResNet50_FPN_V2_Weights
 
-print(FasterRCNN_ResNet50_FPN_V2_Weights.meta['categories'])
+print(FasterRCNN_ResNet50_FPN_V2_Weights.COCO_V1.meta['categories'])
 ```
 
 **[4 points] HTTP endpoint:**
@@ -73,8 +73,8 @@ The contract is the same as for the HTTP endpoint.
 
 ### How to submit?
 
-* Create a private GitHub repository
-* Add [solution-extractor59](https://github.com/solution-extractor59) to collaborators. **It may take up to 30 minutes for your request to be processed**.
+* Create a **private** GitHub repository
+* Install [greater-solution-extractor-59](https://github.com/apps/greater-solution-extractor-59) to your account and authorize it to your newly created repo.
 * Put `Dockerfile` in the root of the repository. This Dockerfile should assemble all code in your repo **and the model checkpoint** into the working service.
 * Go to [http://week07.hareburrow.space:8080](http://week07.hareburrow.space:8080) , use `student`/`Student!1` for login.
 * Build `week07-pipeline` with your repo as a parameter.
