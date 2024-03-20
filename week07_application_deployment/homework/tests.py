@@ -7,8 +7,8 @@ import requests
 from furl import furl
 import pytest
 
-import inference_pb2_grpc
-import inference_pb2
+# import inference_pb2_grpc
+# import inference_pb2
 from prometheus_client.parser import text_string_to_metric_families
 
 
@@ -18,22 +18,22 @@ def eval_data():
         return json.loads(f.read())
 
 
-@pytest.fixture(scope='session')
-def server_ip():
-    server_ip_value = os.environ['DOCKER_IP']
-    if server_ip_value is None:
-        pytest.fail("No cluster ip were provided")
-    return server_ip_value
+# @pytest.fixture(scope='session')
+# def server_ip():
+#     server_ip_value = os.environ['DOCKER_IP']
+#     if server_ip_value is None:
+#         pytest.fail("No cluster ip were provided")
+#     return server_ip_value
 
 
 @pytest.fixture(scope='session')
-def http_host(server_ip):
-    return "http://{}:8080/".format(server_ip)
+def http_host():
+    return "http://localhost:8080/"
 
 
-@pytest.fixture(scope="session")
-def grpc_host(server_ip):
-    return "{}:9090".format(server_ip)
+# @pytest.fixture(scope="session")
+# def grpc_host(server_ip):
+#     return "{}:9090".format(server_ip)
 
 
 def get_metric_value(samples):
@@ -99,11 +99,13 @@ def test_grpc_endpoint(grpc_host, eval_data, capsys):
 
 
 @pytest.mark.run(order=3)
-def test_http_metrics(http_host, eval_data):
+def test_http_metrics(http_host):
     predict_url = str(furl(http_host) / "predict")
     metrics_url = str(furl(http_host) / "metrics")
-    img_name, _ = next(iter(eval_data.items()))
+    # img_name, _ = next(iter(eval_data.items()))
+    img_name = "000000001268.jpg"
     img_url = get_image_link(img_name)
+
 
     init = parse_prom(requests.get(metrics_url).text)
     print(init)
