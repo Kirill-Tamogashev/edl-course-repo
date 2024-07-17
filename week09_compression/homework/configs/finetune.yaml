@@ -1,0 +1,19 @@
+model: resnet18
+device: cpu
+load_checkpoint: null
+loader:
+    train:
+        batch_size: 16
+        shuffle: true
+        num_workers: 8
+    val:
+        batch_size: 16
+        shuffle: false
+        num_workers: 8
+
+train:
+    lr: 0.001
+    num_classes: 10
+    save_freq: 10
+    num_epochs: 50
+    save_dir: checkpoints/finetune

@@ -1,26 +1,31 @@
 from pathlib import Path
+
+import torchvision.datasets
 from tqdm.auto import tqdm
+
+import hydra
 
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from torchvision.models import resnet18, ResNet18_Weights
-from sparseml.pytorch.datasets import ImagenetteDataset, ImagenetteSize
-from sparseml.pytorch.optim import ScheduledModifierManager
+from torchvision.models import resnet18, ResNet18_Weights, resnet101, ResNet101_Weights
+# from sparseml.pytorch.datasets import ImagenetteDataset, ImagenetteSize
+# from sparseml.pytorch.optim import ScheduledModifierManager
 from sparseml.pytorch.utils import export_onnx
 
+
 def save_onnx(model, export_path, convert_qat):
-    # It is important to call torch_model.eval() or torch_model.train(False) before exporting the model, to turn the model to inference mode.
+    # It is important to call torch_model.eval() or torch_model.train(False) before exporting
+    # the model, to turn the model to inference mode.
     # This is required since operators like dropout or batchnorm behave differently in inference and training mode.
     model.eval()
     sample_batch = torch.randn((1, 3, 224, 224))
     export_onnx(model, sample_batch, export_path, convert_qat=convert_qat)
 
 
-def main():
-    # TODO: add argparse/hydra/... to manage hyperparameters like batch_size, path to pretrained model, etc
-
+@hydra.main(config_path="./", config_name="recipie")
+def main(cfg):
     # Sparsification recipe -- yaml file with instructions on how to sparsify the model
     recipe_path = "recipe.yaml"
     assert Path(recipe_path).exists(), "Didn't find sparsification recipe!"
@@ -31,7 +36,11 @@ def main():
     # Model creation
     # TODO: change to your best model from subtasks 1.1 - 1.3
     NUM_CLASSES = 10  # number of Imagenette classes
-    model = resnet18(weights=ResNet18_Weights.DEFAULT)
+    if cfg.model == "resnet18":
+        model = resnet18(weights=ResNet18_Weights.DEFAULT)
+    elif cfg.model == "resnet101":
+        model = resnet101(weights=ResNet101_Weights.DEFAULT)
+
     model.fc = nn.Linear(model.fc.in_features, NUM_CLASSES)
 
     save_onnx(model, checkpoints_path / "baseline_resnet.onnx", convert_qat=False)
@@ -39,7 +48,8 @@ def main():
     # Dataset creation
     # TODO: change to CIFAR10, add test dataset
     batch_size = 64
-    train_dataset = ImagenetteDataset(train=True, dataset_size=ImagenetteSize.s320, image_size=224)
+    train_dataset = torchvision.datasets.CIFAR10(train=True, root="./", download=True,
+                                                 transform=torchvision.transforms.ToTensor())
     train_loader = DataLoader(train_dataset, batch_size, shuffle=True, pin_memory=True, num_workers=8)
 
     # Device setup
@@ -88,6 +98,7 @@ def main():
 
     # Saving model
     save_onnx(model, checkpoints_path / "pruned_quantized_resnet.onnx", convert_qat=True)
+
 
 if __name__ == "__main__":
     main()

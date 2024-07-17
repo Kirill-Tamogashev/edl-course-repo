@@ -4,10 +4,11 @@ cifar_data/
 __pycache__/
 *.py[cod]
 *$py.class
-
+**/data
 # C extensions
 *.so
-
+*.zip
+*.pth
 # Distribution / packaging
 .Python
 build/
