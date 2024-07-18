@@ -18,26 +18,20 @@ class sync_batch_norm(Function):
 
     @staticmethod
     def forward(ctx, input, running_mean, running_var, eps: float, momentum: float):
-        batch = input.size(0)
+        input_shape = input.shape
         hidden = input.size(2)
+        batch = input.size(0)
+        
         world_size = 1 #dist.get_world_size()
-
-        mean = input.mean(dim=(0, 2))
-        # dist.all_reduce(mean)
-        mean /= world_size
-
-        squared_mean = input.pow(2).mean(dim=(0, 2))
-        # dist.all_reduce(squared_mean)
-        squared_mean /= world_size
-
-        var = squared_mean - mean.pow(2)
+        gathered_input = torch.zeros(world_size * batch, *input_shape[1:])
+        dist.all_gather_into_tensor(gathered_input, input)
+        
+        mean = gathered_input.mean(dim=(0, 2))
+        var = torch.var(gathered_input, unbiased=False, dim=(0, 2))
         inverse = 1 / torch.sqrt(var + eps)
-        ctx.save_for_backward(inverse)
-        # print(inverse)
         
         normalized = (input - mean.view(1, -1, 1)) * inverse.view(1, -1, 1)
         ctx.save_for_backward(inverse, normalized)
-        # print(normalized)
         
         bias_correction = (world_size * batch * hidden) /  (world_size * batch * hidden - 1) 
         with torch.no_grad():
@@ -56,11 +50,11 @@ class sync_batch_norm(Function):
         inverse, normalized = ctx.saved_tensors
         inverse = inverse.view(1, -1, 1)
         
-        grad_output_sum = grad_output.sum(dim=(0, 2))
-        # dist.all_reduce(grad_output_sum)
+        gathered_grad_output = torch.zeros(world_size * batch, *grad_output.shape[1:])
+        dist.all_gather_into_tensor(gathered_grad_output, grad_output)
         
-        norm_mul_grad_output_sum = (normalized * grad_output).sum(dim=(0, 2))
-        # dist.all_reduce(norm_mul_grad_output_sum)
+        grad_output_sum = gathered_grad_output.sum(dim=(0, 2))
+        norm_mul_grad_output_sum = (normalized * gathered_grad_output).sum(dim=(0, 2))
         
         grad_input = inverse / N * (
             N * grad_output \

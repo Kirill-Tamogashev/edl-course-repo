@@ -9,6 +9,11 @@ __pycache__/
 *.so
 *.zip
 *.pth
+
+
+**/homework_done
+
+
 # Distribution / packaging
 .Python
 build/

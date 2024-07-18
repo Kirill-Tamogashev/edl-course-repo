@@ -9,7 +9,11 @@ from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from torchvision.datasets import CIFAR100
 
+from . import syncbn
+
+
 torch.set_num_threads(1)
+
 
 
 def init_process(local_rank, fn, backend="nccl"):
@@ -33,8 +37,9 @@ class Net(nn.Module):
         self.dropout2 = nn.Dropout(0.5)
         self.fc1 = nn.Linear(6272, 128)
         self.fc2 = nn.Linear(128, 100)
-        self.bn1 = nn.BatchNorm1d(128, affine=False)  # to be replaced with SyncBatchNorm
-
+        # self.bn1 = nn.BatchNorm1d(128, affine=False)  # to be replaced with SyncBatchNorm
+        self.bn1 = syncbn.SyncBatchNorm(128)
+        
     def forward(self, x):
         x = self.conv1(x)
         x = F.relu(x)
