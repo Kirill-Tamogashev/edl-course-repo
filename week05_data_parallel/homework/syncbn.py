@@ -1,5 +1,4 @@
 import torch
-import torch.nn.functional as F
 import torch.distributed as dist
 from torch.autograd import Function
 from torch.nn.modules.batchnorm import _BatchNorm
@@ -18,56 +17,63 @@ class sync_batch_norm(Function):
     """
 
     @staticmethod
-    def forward(ctx, input, running_mean, running_std, eps: float, momentum: float):
-        # Compute statistics, sync statistics, apply them to the input
-        # Also, store relevant quantities to be used on the backward pass with `ctx.save_for_backward`
-        input_shape = input.shape
-        batch_size, num_features = input_shape[:2]
-        input = input.view(batch_size, num_features, -1)
-        hidden_size = input.size(2)
+    def forward(ctx, input, running_mean, running_var, eps: float, momentum: float):
+        batch = input.size(0)
+        hidden = input.size(2)
+        world_size = 1 #dist.get_world_size()
 
-        # to use torch.distributed primitives only ones, use torch.distributed.all_gather to accumulate
-        # all needed tensors
-        num_processes = dist.get_world_size()
-        # gathered_inputs = torch.zeros(num_processes * batch_size, num_features, hidden_size)
-        all_inputs = [torch.zeros(batch_size, num_features, hidden_size,
-                                  device=input.device, dtype=input.dtype) for _ in range(num_processes)]
-        dist.all_gather(all_inputs, input)
-        gathered_inputs = torch.cat(all_inputs, dim=0)
-        N = gathered_inputs.size(0) * gathered_inputs.size(2)
-        ctx.save_for_backward(N)
+        mean = input.mean(dim=(0, 2))
+        # dist.all_reduce(mean)
+        mean /= world_size
 
-        mean = gathered_inputs.mean(dim=(0, 2), keepdim=True)
-        var = (gathered_inputs.pow(2) - mean.pow(2)).mean(dim=(0, 2), keepdims=True)
+        squared_mean = input.pow(2).mean(dim=(0, 2))
+        # dist.all_reduce(squared_mean)
+        squared_mean /= world_size
 
-        #  we will not follow pytorch and will use unbiased estimator for both forward and backward
-        #  the reason for this is the following: using different formulas for inference and training
-        #  is strange and seems mostly like a bug. Here we apply correction.
-        var_inv = 1 / (var + 1e-9)
-        ctx.save_for_backward(var_inv)
-
-        z = (input - mean) * var_inv.sqrt()
-        ctx.save_for_backward(z)
-
+        var = squared_mean - mean.pow(2)
+        inverse = 1 / torch.sqrt(var + eps)
+        ctx.save_for_backward(inverse)
+        # print(inverse)
+        
+        normalized = (input - mean.view(1, -1, 1)) * inverse.view(1, -1, 1)
+        ctx.save_for_backward(inverse, normalized)
+        # print(normalized)
+        
+        bias_correction = (world_size * batch * hidden) /  (world_size * batch * hidden - 1) 
         with torch.no_grad():
-            running_mean.mul_(1 - momentum).add_(momentum * mean.squeeze(0).squeeze(1))
-            running_std.mul_(1 - momentum).add_(momentum * (var * N / (N - 1)).sqrt().squeeze(0).squeeze(1))
+            running_mean.mul_(1 - momentum).add_(mean * momentum)
+            running_var.mul_(1 - momentum).add_(var * bias_correction * momentum)
 
-        return z.view(*input_shape)
+        return normalized
 
     @staticmethod
     def backward(ctx, grad_output):
-        # don't forget to return a tuple of gradients wrt all arguments of `forward`!
-        N, var_inv, z = ctx.saved_tensors
+        batch = grad_output.size(0)
+        hidden = grad_output.size(2)
+        world_size = 1 # dist.get_world_size()
+        
+        N = batch * hidden * world_size
+        inverse, normalized = ctx.saved_tensors
+        inverse = inverse.view(1, -1, 1)
+        
+        grad_output_sum = grad_output.sum(dim=(0, 2))
+        # dist.all_reduce(grad_output_sum)
+        
+        norm_mul_grad_output_sum = (normalized * grad_output).sum(dim=(0, 2))
+        # dist.all_reduce(norm_mul_grad_output_sum)
+        
+        grad_input = inverse / N * (
+            N * grad_output \
+            - grad_output_sum.view(1, -1, 1) \
+            - normalized * norm_mul_grad_output_sum.view(1, -1, 1)
+        )
 
-        gathered_grad_output = []
-        dist.all_gather(gathered_grad_output, grad_output)
-        gathered_grad_output = torch.cat(gathered_grad_output, dim=0)
-
-        grad_output_sum = gathered_grad_output.sum(dim=(0, 2, 3), keepdim=True)
-        z_times_grad_output_sum = (z * gathered_grad_output).sum(dim=(0, 2, 3), keepdims=True)
-        grad_input = var_inv / N * (N * gathered_grad_output - grad_output_sum - z * z_times_grad_output_sum)
         return grad_input, None, None, None, None
+
+
+def batch_norm(tensor, running_mean, running_var, eps: float = 1e-05):
+    inv_std = (running_var + eps).sqrt().pow(-1)
+    return (tensor - running_mean.view(1, -1, 1)) * inv_std.view(1, -1, 1)
 
 
 class SyncBatchNorm(_BatchNorm):
@@ -89,7 +95,7 @@ class SyncBatchNorm(_BatchNorm):
         self.eps = eps
         self.momentum = momentum
         self.running_mean = torch.zeros((num_features,))
-        self.running_std = torch.ones((num_features,))
+        self.running_var = torch.ones((num_features,))
 
     def _check_input_dim(self, input: torch.Tensor) -> None:
         if input.dim() < 2:
@@ -100,7 +106,7 @@ class SyncBatchNorm(_BatchNorm):
         self._check_input_dim(input)
 
         if not self.training and self.track_running_stats:
-            return F.batch_norm(input, self.running_mean, self.running_var)  # maybe smth else is also needed
+            return batch_norm(input, self.running_mean, self.running_var)  # maybe smth else is also needed
 
-        return sync_batch_norm.apply(input, self.running_mean, self.running_std, self.eps, self.momentum)
+        return sync_batch_norm.apply(input, self.running_mean, self.running_var, self.eps, self.momentum)
 

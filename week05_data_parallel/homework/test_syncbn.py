@@ -1,7 +1,17 @@
 import torch
 from syncbn import SyncBatchNorm
 
+import pytest
 
+testdata = [
+    (worker, dim, batch) 
+    for worker in [1, 4] 
+    for dim in [128, 256, 512, 1024] 
+    for batch in [32, 64]
+]
+
+
+@pytest.mark.parametrize("num_workers,hid_dim,batch_size", testdata)
 def test_batchnorm(num_workers, hid_dim, batch_size):
     # Verify that the implementation of SyncBatchNorm gives the same results (both for outputs
     # and gradients with respect to input) as torch.nn.BatchNorm1d on a variety of inputs.
@@ -10,5 +20,6 @@ def test_batchnorm(num_workers, hid_dim, batch_size):
     # torch.distributed primitives, but you can also communicate their outputs back to the main process to compare them
     # with the outputs of a non-synchronous BatchNorm.
     ctx = torch.multiprocessing.get_context("spawn")
+    ctx.
 
     pass
